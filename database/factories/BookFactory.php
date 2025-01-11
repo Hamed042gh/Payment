@@ -24,6 +24,7 @@ class BookFactory extends Factory
             'title' => $this->faker->sentence(3),
             'author' => $this->faker->name(),
             'description' => $this->faker->paragraph(3),
+            'amount' => $this->faker->numberBetween(1000, 100000),
             'user_id' => User::factory()
         ];
     }
