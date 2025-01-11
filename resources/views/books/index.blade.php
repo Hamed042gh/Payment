@@ -46,7 +46,9 @@
                     <th>ID</th>
                     <th>Title</th>
                     <th>Author</th>
+                    <th>Amount</th>
                     <th>owner</th>
+                    <th>pay</th>
             
                 </tr>
             </thead>
@@ -56,7 +58,16 @@
                         <td>{{ $book->id }}</td>
                         <td>{{ $book->title }}</td>
                         <td>{{ $book->author }}</td>
+                        <td>{{ $book->amount }}</td>
                         <td>{{ $book->user->name }}</td>
+                        <td>  <form action="{{ route('payment.purchase', $book->user->id) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="book_id" value="{{ $book->id }}">
+                            <input type="hidden" name="amount" value="{{ $book->amount }}">
+                            <input type="hidden" name=user_id value="{{ $book->user->id }}">
+                            <button type="submit">Pay</button>
+                        </form>
+                        </td>
                        
                     </tr>
                 @endforeach

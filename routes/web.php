@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BookController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,3 +21,5 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 route::get('/books', [BookController::class, 'index'])->name('books.index');
+route::post('/payment/{id}/purchase', [PaymentController::class, 'initiatePayment'])->name('payment.purchase');
+Route::get('payment/verify', [PaymentController::class, 'verifyPayment']);
