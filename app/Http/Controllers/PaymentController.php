@@ -2,63 +2,102 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Payment;
+use App\Http\Requests\InitialPaymentRequest;
+use App\Models\Payment as userpayment;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Shetabit\Multipay\Exceptions\InvalidPaymentException;
 use Shetabit\Multipay\Invoice;
+use Shetabit\Payment\Facade\Payment;
 
 class PaymentController extends Controller
 {
-    public function initiatePayment(Request $request)
-    {
-        $validated = $request->validate([
-            'amount' => 'required|numeric',
-            'user_id' => 'required|numeric',
-            'book_id' => 'required|numeric',
-        ]);
 
-        // مبلغ پرداختی به ریال (زیبال به ریال نیاز دارد)
+    public function initiatePayment(InitialPaymentRequest $request)
+    {
+        // مبلغ به ریال تبدیل می‌شود
         $amount = $request->amount * 10;
 
-        $invoice = new Invoice();
-        $invoice->amount($amount);
-        $invoice->via('zibal');
-        $invoice->detail([
-            'transaction_id' => $request->transaction_id,
-            'amount' => $amount,
-        ]);
+        // ایجاد فاکتور برای درخواست پرداخت
+        $invoice = $this->createInvoice($amount);
+        $transactionId = null;
 
+        //صدا زدن درگاه پرداخت
         try {
-            $response = Http::post('https://api.zibal.ir/v1/request', [
-                'merchant' => 'zibal',
-                'callbackUrl' => 'https://h00wen41.ir/dashboard',
-                'amount' => $amount,
-            ]);
+            Payment::purchase(
+                $invoice,
+                function ($driver, $transId) use (&$transactionId, $request) {
+                    $transactionId = $transId;
+                    $this->storePayment($request, $transactionId); // ثبت اطلاعات در دیتابیس
+                }
+            );
 
-            Payment::create([
-                'user_id' => $request->user_id,
-                'transaction_id' => $response['trackId'],
-                'payment_status' => 'pending',
-                'payment_method' => 'zibal',
-                'payment_date' => now(),
-                'amount' => $amount,
-            ]);
-            return $this->verifyPayment($response);
-        } catch (\Exception $e) {
-            return back()->with('error', 'خطایی رخ داده است.');
+            if (empty($transactionId)) {
+                return redirect()->route('books.index')->with('error', 'مشکلی در ارتباط با درگاه پرداخت رخ داده است.');
+            }
+
+            return redirect('https://gateway.zibal.ir/start/' . $transactionId);
+
+        } catch (\Exception $exception) {
+            Log::error('Payment initiation error: ' . $exception->getMessage());
+            return redirect()->route('books.index')->with('error', 'خطایی در ایجاد تراکنش رخ داده است.');
         }
     }
 
-    public function verifyPayment($response)
-    {
-dd( $response->trackId);
-        return redirect()->away('https://gateway.zibal.ir/start/' . $response->trackId);
-        $response = Http::post('https://api.zibal.ir/v1/verify', [
-            'merchant' => 'zibal',
-            'trackId' => $response->trackId,
-        ]);
 
-       
-    
-}
+
+    public function verifyPayment(Request $request)
+    {
+        $transaction_id = $request->trackId;
+        try {
+            // شروع تراکنش
+            DB::beginTransaction();
+
+            // دریافت اطلاعات پرداخت
+            $payment = userpayment::where('transaction_id', $transaction_id)->firstOrFail();
+            // تایید پرداخت
+            Payment::amount($payment->amount)->transactionId($transaction_id)->verify();
+            // بروزرسانی وضعیت پرداخت
+            $payment->update(['payment_status' => 'success']);
+
+            // پایان تراکنش
+            DB::commit();
+
+            return redirect()->route('books.index')->with('success', 'پرداخت شما با موفقیت انجام شد');
+        } catch (InvalidPaymentException $exception) {
+            // بازگرداندن تراکنش در صورت خطا
+            DB::rollBack();
+            return redirect()->route('books.index')->with('error', 'پرداخت شما ناموفق بود');
+        } catch (\Exception $exception) {
+            // بازگرداندن تراکنش در صورت خطا
+            DB::rollBack();
+            return redirect()->route('books.index')->with('error', 'خطایی در پردازش پرداخت شما رخ داده است');
+        }
+    }
+
+
+    private function createInvoice($amount)
+    {
+        // ایجاد فاکتور برای درخواست پرداخت
+        $invoice = new Invoice();
+        $invoice->amount($amount);
+        $invoice->via('zibal');
+
+        return $invoice;
+    }
+
+
+    private function storePayment(Request $request, $transactionId)
+    {
+        userpayment::create([
+            'user_id' => $request->user_id,
+            'book_id' => $request->book_id,
+            'amount' => $request->amount,
+            'transaction_id' => $transactionId,
+            'payment_status' => 'pending',
+            'payment_method' => 'zibal',
+            'payment_date' => now(),
+        ]);
+    }
 }
