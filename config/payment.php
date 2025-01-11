@@ -371,10 +371,10 @@ return [
             'apiPaymentUrl' => 'https://gateway.zibal.ir/start/',
             'apiVerificationUrl' => 'https://gateway.zibal.ir/v1/verify',
 
-            'mode' => 'normal', // can be normal, direct
+            'mode' => 'sandbox', // can be normal, sandbox
 
             'merchantId' => 'zibal',
-            'callbackUrl' => 'http://h00wen41.ir/dashboard',
+            'callbackUrl' => 'http://h00wen41.ir/payment/verify',
             'description' => 'payment using zibal',
             'currency' => 'T', //Can be R, T (Rial, Toman)
         ],
