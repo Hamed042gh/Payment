@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\SuccessfulPayment;
 use App\Http\Requests\InitialPaymentRequest;
 use App\Models\Payment as userpayment;
 use Illuminate\Http\Request;
@@ -63,8 +64,11 @@ class PaymentController extends Controller
 
             // پایان تراکنش
             DB::commit();
+            // اعلان پرداخت موفق
+            event(new SuccessfulPayment($payment));
 
             return redirect()->route('books.index')->with('success', 'پرداخت شما با موفقیت انجام شد');
+
         } catch (InvalidPaymentException $exception) {
             // بازگرداندن تراکنش در صورت خطا
             DB::rollBack();
