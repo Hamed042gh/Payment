@@ -31,10 +31,12 @@ class PaymentStatusHandler
      * متد برای هندل کردن وضعیت پرداخت ناموفق
      * 
      * @param int $status وضعیت پرداخت (مقدار عددی)
+     * @param string $trackId شناسه پیگیری پرداخت
      * @return \Illuminate\Http\RedirectResponse
      */
     public function FailedPayment($status, $trackId)
     {
+        // پیدا کردن پرداخت با استفاده از trackId
         $payment = Payment::where('trackId', $trackId)->first();
         
         // اگر پرداخت پیدا شود
@@ -42,6 +44,7 @@ class PaymentStatusHandler
             $payment->update(['payment_status' => 'failed']);
         }
 
+        // هندل کردن وضعیت پرداخت با استفاده از متد handlePaymentStatus
         return $this->handlePaymentStatus($status);
     }
 

@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\PaymentStatus;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Shetabit\Payment\Facade\Payment;
