@@ -1,7 +1,9 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Events\SuccessfulPayment;
 use App\Http\Requests\InitialPaymentRequest;
+use App\Models\Payment;
 use App\Repositories\PaymentRepository;
 use App\Services\PaymentService;
 use App\Services\PaymentStatusHandler;
@@ -34,6 +36,7 @@ class PaymentController extends Controller
      */
     public function initiatePayment(InitialPaymentRequest $request)
     {
+        
         // محاسبه مبلغ پرداختی و ارسال درخواست به درگاه
         $amount = ($request->amount) * 10;
         $response  = $this->paymentService->initiate($amount);
@@ -73,12 +76,25 @@ class PaymentController extends Controller
         // اگر پرداخت موفقیت‌آمیز بود
         if ($success == '1') {
             $this->paymentService->verify($trackId);
+            $payment = Payment::where('trackId', $trackId)->first();
+            if (!$payment) {
+                // اگر پرداخت یافت نشد
+                Log::error("Payment record not found for trackId: {$trackId}");
+                return redirect('/books')->withErrors(['payment' => 'Payment record not found.']);
+            }
 
-            // هندل کردن پرداخت موفق
-            return $this->paymentStatusHandler->SuccessfulPayment($status, $trackId);
+            // هندل کردن پرداخت موفق و ارسال ایمیل به کاربر
+            try {
+                event(new SuccessfulPayment($payment));
+                return $this->paymentStatusHandler->SuccessfulPayment($status, $trackId);
+            } catch (\Exception $e) {
+                // ثبت خطا و نمایش پیام خطا
+                Log::error("Error handling successful payment: {$e->getMessage()}");
+                return redirect('/books')->withErrors(['payment' => 'An error occurred while processing your payment.']);
+            }
         }
 
         // اگر پرداخت ناموفق بود
-        return $this->paymentStatusHandler->FailedPayment($status);
+        return $this->paymentStatusHandler->FailedPayment($status, $trackId);
     }
 }

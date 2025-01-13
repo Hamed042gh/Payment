@@ -20,12 +20,7 @@ class PaymentStatusHandler
         
         // اگر پرداخت پیدا شود
         if ($payment) {
-            // تبدیل مقدار عددی وضعیت به enum
-            $statusEnum = PaymentStatus::from($status);
-
-            // ذخیره متن وضعیت پرداخت به جای مقدار عددی
-            $payment->payment_status = $statusEnum->getText();
-            $payment->save();
+            $payment->update(['payment_status' => 'success']);
         }
 
         // هندل کردن وضعیت پرداخت با استفاده از متد handlePaymentStatus
@@ -38,9 +33,15 @@ class PaymentStatusHandler
      * @param int $status وضعیت پرداخت (مقدار عددی)
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function FailedPayment($status)
+    public function FailedPayment($status, $trackId)
     {
-        // هندل کردن وضعیت پرداخت ناموفق با استفاده از متد handlePaymentStatus
+        $payment = Payment::where('trackId', $trackId)->first();
+        
+        // اگر پرداخت پیدا شود
+        if ($payment) {
+            $payment->update(['payment_status' => 'failed']);
+        }
+
         return $this->handlePaymentStatus($status);
     }
 
