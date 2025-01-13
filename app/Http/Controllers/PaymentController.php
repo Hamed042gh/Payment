@@ -1,107 +1,84 @@
 <?php
-
 namespace App\Http\Controllers;
 
-use App\Events\SuccessfulPayment;
 use App\Http\Requests\InitialPaymentRequest;
-use App\Models\Payment as userpayment;
+use App\Repositories\PaymentRepository;
+use App\Services\PaymentService;
+use App\Services\PaymentStatusHandler;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Shetabit\Multipay\Exceptions\InvalidPaymentException;
-use Shetabit\Multipay\Invoice;
-use Shetabit\Payment\Facade\Payment;
 
 class PaymentController extends Controller
 {
+    private $paymentService;
+    private $paymentRepository;
+    private $paymentStatusHandler;
 
+    // سازنده برای تزریق وابستگی‌ها
+    public function __construct(PaymentService $paymentService, PaymentRepository $paymentRepository, PaymentStatusHandler $paymentStatusHandler)
+    {
+        $this->paymentService = $paymentService;
+        $this->paymentRepository = $paymentRepository;
+        $this->paymentStatusHandler = $paymentStatusHandler;
+    }
+
+    /**
+     * متد شروع فرآیند پرداخت
+     * 
+     * این متد با دریافت مبلغ از درخواست کاربر، به درگاه پرداخت ارسال می‌کند
+     * و اگر پرداخت موفقیت‌آمیز بود، کاربر به درگاه هدایت می‌شود.
+     * اگر پرداخت موفقیت‌آمیز نبود، خطا به کاربر نمایش داده می‌شود.
+     * 
+     * @param InitialPaymentRequest $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function initiatePayment(InitialPaymentRequest $request)
     {
-        // مبلغ به ریال تبدیل می‌شود
-        $amount = $request->amount * 10;
-
-        // ایجاد فاکتور برای درخواست پرداخت
-        $invoice = $this->createInvoice($amount);
-        $transactionId = null;
-
-        //صدا زدن درگاه پرداخت
-        try {
-            Payment::purchase(
-                $invoice,
-                function ($driver, $transId) use (&$transactionId, $request) {
-                    $transactionId = $transId;
-                    $this->storePayment($request, $transactionId); // ثبت اطلاعات در دیتابیس
-                }
-            );
-
-            if (empty($transactionId)) {
-                return redirect()->route('books.index')->with('error', 'مشکلی در ارتباط با درگاه پرداخت رخ داده است.');
-            }
-
-            return redirect('https://gateway.zibal.ir/start/' . $transactionId);
-
-        } catch (\Exception $exception) {
-            Log::error('Payment initiation error: ' . $exception->getMessage());
-            return redirect()->route('books.index')->with('error', 'خطایی در ایجاد تراکنش رخ داده است.');
+        // محاسبه مبلغ پرداختی و ارسال درخواست به درگاه
+        $amount = ($request->amount) * 10;
+        $response  = $this->paymentService->initiate($amount);
+        
+        // ثبت لاگ نتیجه پرداخت
+        Log::info('Payment initiation result:', ['result' => $response]);
+        
+        // بررسی نتیجه و هدایت به درگاه پرداخت
+        if ($response['success']) {
+            // ذخیره اطلاعات پرداخت در پایگاه داده
+            $this->paymentRepository->createPayment($amount, $response['trackId']);
+            return redirect($this->paymentService->getZibalApiStart() . $response['trackId']);
+        } else {
+            // اگر پرداخت ناموفق بود، نمایش خطا
+            Log::error('Payment initiation failed.');
+            return response()->json(['error' => $response['message']], 500);
         }
     }
 
-
-
+    /**
+     * متد تایید یا رد وضعیت پرداخت
+     * 
+     * این متد برای تایید یا رد پرداخت بر اساس وضعیت دریافتی از درگاه استفاده می‌شود.
+     * اگر پرداخت موفق بود، وضعیت موفقیت‌آمیز پردازش می‌شود.
+     * اگر پرداخت ناموفق بود، وضعیت شکست پردازش می‌شود.
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function verifyPayment(Request $request)
     {
-        $transaction_id = $request->trackId;
-        try {
-            // شروع تراکنش
-            DB::beginTransaction();
+        // دریافت اطلاعات وضعیت پرداخت
+        $trackId = $request->input('trackId');
+        $success = $request->input('success');
+        $status = $request->input('status');
 
-            // دریافت اطلاعات پرداخت
-            $payment = userpayment::where('transaction_id', $transaction_id)->firstOrFail();
-            // تایید پرداخت
-            Payment::amount($payment->amount)->transactionId($transaction_id)->verify();
-            // بروزرسانی وضعیت پرداخت
-            $payment->update(['payment_status' => 'success']);
+        // اگر پرداخت موفقیت‌آمیز بود
+        if ($success == '1') {
+            $this->paymentService->verify($trackId);
 
-            // پایان تراکنش
-            DB::commit();
-            // اعلان پرداخت موفق
-            event(new SuccessfulPayment($payment));
-
-            return redirect()->route('books.index')->with('success', 'پرداخت شما با موفقیت انجام شد');
-
-        } catch (InvalidPaymentException $exception) {
-            // بازگرداندن تراکنش در صورت خطا
-            DB::rollBack();
-            return redirect()->route('books.index')->with('error', 'پرداخت شما ناموفق بود');
-        } catch (\Exception $exception) {
-            // بازگرداندن تراکنش در صورت خطا
-            DB::rollBack();
-            return redirect()->route('books.index')->with('error', 'خطایی در پردازش پرداخت شما رخ داده است');
+            // هندل کردن پرداخت موفق
+            return $this->paymentStatusHandler->SuccessfulPayment($status, $trackId);
         }
-    }
 
-
-    private function createInvoice($amount)
-    {
-        // ایجاد فاکتور برای درخواست پرداخت
-        $invoice = new Invoice();
-        $invoice->amount($amount);
-        $invoice->via('zibal');
-
-        return $invoice;
-    }
-
-
-    private function storePayment(Request $request, $transactionId)
-    {
-        userpayment::create([
-            'user_id' => $request->user_id,
-            'book_id' => $request->book_id,
-            'amount' => $request->amount,
-            'transaction_id' => $transactionId,
-            'payment_status' => 'pending',
-            'payment_method' => 'zibal',
-            'payment_date' => now(),
-        ]);
+        // اگر پرداخت ناموفق بود
+        return $this->paymentStatusHandler->FailedPayment($status);
     }
 }

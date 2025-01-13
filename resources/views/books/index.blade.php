@@ -48,6 +48,12 @@
             {{ session('error') }}
         </div>
     @endif
+    @if ($errors->has('payment'))
+    <div style="background-color: #f8d7da; color: #721c24; padding: 10px; margin-bottom: 10px;">
+        {{ $errors->first('payment') }}
+    </div>
+@endif
+
     <div class="container">
         <h1>Books List</h1>
         <table class="table">
@@ -70,7 +76,7 @@
                         <td>{{ $book->author }}</td>
                         <td>{{ $book->amount }}</td>
                         <td>{{ $book->user->name }}</td>
-                        <td>  <form action="{{ route('payment.purchase', $book->user->id) }}" method="POST">
+                        <td>  <form action="{{ route('payment.purchase')}}" method="POST">
                             @csrf
                             <input type="hidden" name="book_id" value="{{ $book->id }}">
                             <input type="hidden" name="amount" value="{{ $book->amount }}">
