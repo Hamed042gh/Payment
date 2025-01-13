@@ -21,5 +21,5 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 route::get('/books', [BookController::class, 'index'])->name('books.index');
-route::post('/payment/{id}/purchase', [PaymentController::class, 'initiatePayment'])->name('payment.purchase');
-Route::get('payment/verify', [PaymentController::class, 'verifyPayment']);
+route::post('/payment/request', [PaymentController::class, 'initiatePayment'])->name('payment.purchase');
+Route::get('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
