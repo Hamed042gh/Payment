@@ -11,7 +11,9 @@
                 <div class="p-6 text-gray-900">
                     {{ __("You're logged in!") }}
                 </div>
-                <a href="{{route('books.index')}}">Show All books</a>
+                <h1 class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transition" >
+                    <a href="{{route('books.index')}}">Show All books</a></h1>
+
             </div>
         </div>
     </div>
