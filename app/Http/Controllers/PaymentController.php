@@ -8,6 +8,7 @@ use App\Repositories\PaymentRepository;
 use App\Services\PaymentService;
 use App\Services\PaymentStatusHandler;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -36,18 +37,17 @@ class PaymentController extends Controller
      */
     public function initiatePayment(InitialPaymentRequest $request)
     {
-        
         // محاسبه مبلغ پرداختی و ارسال درخواست به درگاه
         $amount = ($request->amount) * 10;
         $response  = $this->paymentService->initiate($amount);
         
         // ثبت لاگ نتیجه پرداخت
         Log::info('Payment initiation result:', ['result' => $response]);
-        
+        $book_id = $request['book_id'];
         // بررسی نتیجه و هدایت به درگاه پرداخت
         if ($response['success']) {
             // ذخیره اطلاعات پرداخت در پایگاه داده
-            $this->paymentRepository->createPayment($amount, $response['trackId']);
+            $this->paymentRepository->createPayment($amount, $response['trackId'], $book_id);
             return redirect($this->paymentService->getZibalApiStart() . $response['trackId']);
         } else {
             // اگر پرداخت ناموفق بود، نمایش خطا

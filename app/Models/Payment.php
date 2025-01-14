@@ -16,6 +16,7 @@ class Payment extends Model
         'payment_status',
         'payment_date',
         'trackId',
+        'book_id'
     ];
     
     public function user()
@@ -36,4 +37,9 @@ class Payment extends Model
  
          return $statusTexts[$this->payment_status] ?? 'Unknown';
      }
+
+    public function book()
+    {
+        return $this->belongsTo(Book::class);
+    }
 }

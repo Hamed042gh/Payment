@@ -24,7 +24,6 @@ class InitialPaymentRequest extends FormRequest
         return [
                 // اعتبارسنجی درخواست
             'amount' => 'required|numeric',
-            'user_id' => 'required|numeric',
             'book_id' => 'required|numeric',
         ];
     }
