@@ -16,5 +16,10 @@ class Book extends Model
     {
         return $this->belongsTo(User::class);
     }
+    
+    public function Payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 
 }

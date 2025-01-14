@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Auth;
 
 class PaymentRepository
 {
-    public function createPayment($amount, $trackId)
+    public function createPayment($amount, $trackId,$book_id)
 
     {
         return Payment::create([
@@ -16,7 +16,8 @@ class PaymentRepository
             'amount' => $amount,
             'trackId' => $trackId,
             'payment_status' => 'pending',
-            'payment_date' => now()
+            'payment_date' => now(),
+            'book_id' => $book_id
         ]);
     }
 }

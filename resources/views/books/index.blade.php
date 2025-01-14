@@ -80,7 +80,6 @@
                             @csrf
                             <input type="hidden" name="book_id" value="{{ $book->id }}">
                             <input type="hidden" name="amount" value="{{ $book->amount }}">
-                            <input type="hidden" name=user_id value="{{ $book->user->id }}">
                             <button type="submit">Pay</button>
                         </form>
                         </td>

@@ -20,6 +20,9 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
-route::get('/books', [BookController::class, 'index'])->name('books.index');
-route::post('/payment/request', [PaymentController::class, 'initiatePayment'])->name('payment.purchase');
-Route::get('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
+Route::get('/books', [BookController::class, 'index'])->name('books.index');
+
+Route::middleware('duplicate_Payment_Check')->group(function () {
+    Route::post('/payment/request', [PaymentController::class, 'initiatePayment'])->name('payment.purchase');
+    Route::get('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
+});
